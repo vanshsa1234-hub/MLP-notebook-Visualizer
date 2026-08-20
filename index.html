@@ -556,6 +556,7 @@
       <div class="status-value" id="sidebarDataset">Dataset: 0 samples</div>
       <div class="status-value" id="sidebarMode">Mode: Mini-batch · batch 2</div>
     </div>
+    <button type="button" class="ghost" id="btnTourReplay" style="margin-top:14px;width:100%;">🧭 Guided Tour</button>
   </aside>
   <div class="workspace">
     <nav class="mobile-nav" id="mobileNav" aria-label="Workspace navigation">
@@ -1753,6 +1754,290 @@
   renderHiddenLayerRows();
   renderDatasetEditor();
   rebuildEverything(true);
+})();
+</script>
+
+<!-- ===== Friendly onboarding: welcome choice + short tour + just-in-time tips + celebrations ===== -->
+<style>
+  /* Welcome card */
+  #welcomeOverlay{ position:fixed; inset:0; z-index:9995; display:none; align-items:center; justify-content:center; background:rgba(3,7,18,0.72); backdrop-filter:blur(2px); }
+  #welcomeCard{
+    max-width:380px; width:88vw; background:var(--bg-elevated,#0b0f1c); border:1px solid var(--accent,#00e5ff);
+    border-radius:14px; padding:26px 24px; text-align:center;
+    box-shadow:0 0 30px -4px rgba(0,229,255,0.55), 0 16px 40px rgba(0,0,0,0.55);
+    font-family:'Rajdhani',sans-serif; animation:welcomePop .35s ease;
+  }
+  @keyframes welcomePop{ from{ opacity:0; transform:scale(.94) translateY(6px);} to{ opacity:1; transform:none; } }
+  #welcomeCard .w-emoji{ font-size:30px; margin-bottom:6px; }
+  #welcomeCard h2{ font-family:'Orbitron',sans-serif; font-size:16px; color:#fff; margin:0 0 10px; letter-spacing:.02em; }
+  #welcomeCard p{ font-size:14.5px; line-height:1.5; color:#c9dbe4; margin:0 0 20px; }
+  #welcomeCard .w-btns{ display:flex; flex-direction:column; gap:10px; }
+  #welcomeCard button{ font-family:'Rajdhani',sans-serif; font-weight:700; font-size:14px; padding:11px 14px; border-radius:9px; cursor:pointer; }
+  #welcomeCard .w-primary{ background:linear-gradient(135deg, rgba(0,229,255,0.28), rgba(168,85,247,0.22)); border:1px solid var(--accent,#00e5ff); color:#fff; }
+  #welcomeCard .w-primary:hover{ box-shadow:0 0 16px -2px rgba(0,229,255,0.6); }
+  #welcomeCard .w-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.18); color:#c9dbe4; }
+  #welcomeCard .w-ghost:hover{ border-color:var(--accent,#00e5ff); color:#fff; }
+
+  /* Spotlight tour (short version) */
+  #tourOverlay{ position:fixed; inset:0; z-index:9990; display:none; }
+  #tourHighlight{
+    position:fixed; z-index:9991; pointer-events:none;
+    border:2px solid var(--accent, #00e5ff); border-radius:10px;
+    box-shadow:0 0 0 9999px rgba(3,7,18,0.72), 0 0 22px 2px rgba(0,229,255,0.55);
+    transition:top .35s ease, left .35s ease, width .35s ease, height .35s ease;
+  }
+  #tourCard{
+    position:fixed; z-index:9992; max-width:320px; width:88vw;
+    background:var(--bg-elevated,#0b0f1c); border:1px solid var(--accent,#00e5ff);
+    border-radius:12px; padding:15px 17px; color:#e8fbff;
+    box-shadow:0 0 24px -4px rgba(0,229,255,0.6), 0 12px 30px rgba(0,0,0,0.5);
+    font-family:'Rajdhani',sans-serif; transition:top .35s ease, left .35s ease;
+  }
+  #tourCard .tour-kicker{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.18em; color:var(--accent-ink,#5ff2ff); opacity:.85; margin-bottom:5px; }
+  #tourCard h3{ margin:0 0 6px; font-family:'Orbitron',sans-serif; font-size:13.5px; color:#fff; }
+  #tourCard p{ margin:0 0 12px; font-size:14px; line-height:1.42; color:#c9dbe4; }
+  #tourCard .tour-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  #tourCard .tour-dots{ display:flex; gap:5px; }
+  #tourCard .tour-dots span{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.25); }
+  #tourCard .tour-dots span.on{ background:var(--accent,#00e5ff); box-shadow:0 0 6px 1px rgba(0,229,255,0.7); }
+  #tourCard .tour-btns{ display:flex; gap:8px; }
+  #tourCard button{ font-family:'Rajdhani',sans-serif; font-weight:600; font-size:12.5px; padding:6px 11px; border-radius:7px; cursor:pointer; }
+  #tourCard button.tour-skip{ background:transparent; border:1px solid transparent; color:#8fa3ac; }
+  #tourCard button.tour-skip:hover{ color:#e8fbff; }
+  #tourCard button.tour-next{ background:linear-gradient(135deg, rgba(0,229,255,0.28), rgba(168,85,247,0.22)); border:1px solid var(--accent,#00e5ff); color:#fff; }
+  #tourCard button.tour-back{ background:transparent; border:1px solid rgba(255,255,255,0.2); color:#c9dbe4; }
+
+  /* Gentle just-in-time toast + celebration toast */
+  #toastStack{ position:fixed; right:18px; bottom:18px; z-index:9993; display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+  .mlp-toast{
+    max-width:300px; background:var(--bg-elevated,#0b0f1c); border:1px solid var(--accent,#00e5ff); border-radius:11px;
+    padding:12px 14px; color:#e8fbff; font-family:'Rajdhani',sans-serif; box-shadow:0 0 20px -4px rgba(0,229,255,0.55), 0 10px 24px rgba(0,0,0,0.5);
+    display:flex; gap:10px; align-items:flex-start; animation:toastIn .3s ease;
+  }
+  @keyframes toastIn{ from{ opacity:0; transform:translateY(10px);} to{ opacity:1; transform:none; } }
+  .mlp-toast .t-emoji{ font-size:18px; line-height:1; margin-top:1px; }
+  .mlp-toast .t-body{ flex:1; }
+  .mlp-toast .t-title{ font-family:'Orbitron',sans-serif; font-size:12px; color:#fff; margin-bottom:3px; }
+  .mlp-toast .t-text{ font-size:13px; line-height:1.4; color:#c9dbe4; }
+  .mlp-toast .t-close{ background:none; border:none; color:#8fa3ac; cursor:pointer; font-size:15px; line-height:1; padding:0; }
+  .mlp-toast .t-close:hover{ color:#fff; }
+  @media (max-width:560px){ #welcomeCard, #tourCard{ max-width:none; } #toastStack{ left:12px; right:12px; align-items:stretch; } .mlp-toast{ max-width:none; } }
+</style>
+
+<div id="welcomeOverlay">
+  <div id="welcomeCard">
+    <div class="w-emoji">👋</div>
+    <h2>Welcome to the Neural Core</h2>
+    <p>Want the 60‑second tour of what's where, or would you rather just start clicking and get quick tips as you go?</p>
+    <div class="w-btns">
+      <button type="button" class="w-primary" id="btnWelcomeTour">🧭 Give me the quick tour</button>
+      <button type="button" class="w-ghost" id="btnWelcomeSkip">🚀 I'll explore myself</button>
+    </div>
+  </div>
+</div>
+
+<div id="tourOverlay">
+  <div id="tourHighlight"></div>
+  <div id="tourCard">
+    <div class="tour-kicker" id="tourKicker">STEP 1 / 5</div>
+    <h3 id="tourTitle"></h3>
+    <p id="tourBody"></p>
+    <div class="tour-foot">
+      <div class="tour-dots" id="tourDots"></div>
+      <div class="tour-btns">
+        <button type="button" class="tour-skip" id="tourSkip">Skip</button>
+        <button type="button" class="tour-back" id="tourBack">Back</button>
+        <button type="button" class="tour-next" id="tourNext">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toastStack"></div>
+
+<script>
+(function(){
+  var WELCOME_KEY = 'mlpWelcomeSeen_v2';
+  var TIP_PREFIX = 'mlpTip_v2_';
+  var CELEBRATE_PREFIX = 'mlpCelebrate_v2_';
+
+  /* ---------- tiny toast helper ---------- */
+  var toastStack = document.getElementById('toastStack');
+  function toast(emoji, title, text, ms){
+    var el = document.createElement('div');
+    el.className = 'mlp-toast';
+    el.innerHTML = '<div class="t-emoji">'+emoji+'</div><div class="t-body"><div class="t-title">'+title+'</div><div class="t-text">'+text+'</div></div><button type="button" class="t-close" aria-label="Dismiss">×</button>';
+    toastStack.appendChild(el);
+    var kill = function(){ el.style.transition='opacity .25s ease'; el.style.opacity='0'; setTimeout(function(){ el.remove(); }, 250); };
+    el.querySelector('.t-close').addEventListener('click', kill);
+    setTimeout(kill, ms || 7000);
+  }
+  function once(key, fn){
+    var seen = false;
+    try{ seen = !!localStorage.getItem(key); }catch(e){}
+    if(seen) return;
+    try{ localStorage.setItem(key, '1'); }catch(e){}
+    fn();
+  }
+
+  /* ---------- short 5-stop spotlight tour ---------- */
+  var steps = [
+    { view:'setup', sel:'#sideNav', title:'The four stages', body:'Setup → Step‑by‑Step → Train → Results. Click any of these anytime to jump around — nothing here is locked in order.' },
+    { view:'setup', sel:'#btnBuild', title:'Build Network', body:'Configure the architecture above, then press this to initialize weights and biases. You can rebuild anytime you change the shape.' },
+    { view:'inspect', sel:'#btnForward', title:'Walk through the math', body:'These four buttons take one sample through forward pass → loss → backprop → update, one click at a time, so you can see exactly what\'s happening.' },
+    { view:'train', sel:'#btnTrain', title:'Train for real', body:'When you\'re ready to stop stepping manually, this runs full epochs automatically and logs progress below.' },
+    { view:'results', sel:'#lossChart', title:'Check your progress', body:'This chart is your sanity check — loss should trend downward as training goes. Weights and full history live in this tab too.' }
+  ];
+
+  var overlay = document.getElementById('tourOverlay');
+  var highlight = document.getElementById('tourHighlight');
+  var card = document.getElementById('tourCard');
+  var kicker = document.getElementById('tourKicker');
+  var titleEl = document.getElementById('tourTitle');
+  var bodyEl = document.getElementById('tourBody');
+  var dotsEl = document.getElementById('tourDots');
+  var btnNext = document.getElementById('tourNext');
+  var btnBack = document.getElementById('tourBack');
+  var btnSkip = document.getElementById('tourSkip');
+  var replayBtn = document.getElementById('btnTourReplay');
+
+  var idx = 0, active = false;
+  dotsEl.innerHTML = steps.map(function(){ return '<span></span>'; }).join('');
+  var dotEls = Array.from(dotsEl.children);
+
+  function switchToView(view){
+    var navBtn = document.querySelector('.side-nav [data-view="' + view + '"]');
+    if(navBtn && !navBtn.classList.contains('active')) navBtn.click();
+  }
+
+  function place(){
+    var step = steps[idx];
+    var el = step ? document.querySelector(step.sel) : null;
+    if(!el){ next(); return; }
+    el.scrollIntoView({ block:'center', behavior:'smooth' });
+    setTimeout(function(){
+      var r = el.getBoundingClientRect();
+      var pad = 8;
+      highlight.style.top = Math.max(r.top - pad, 4) + 'px';
+      highlight.style.left = Math.max(r.left - pad, 4) + 'px';
+      highlight.style.width = (r.width + pad*2) + 'px';
+      highlight.style.height = (r.height + pad*2) + 'px';
+      var cardW = card.offsetWidth || 300, cardH = card.offsetHeight || 140;
+      var top = r.bottom + 16;
+      if(top + cardH > window.innerHeight - 8){ top = Math.max(r.top - cardH - 16, 8); }
+      var left = r.left;
+      if(left + cardW > window.innerWidth - 8){ left = window.innerWidth - cardW - 8; }
+      if(left < 8) left = 8;
+      card.style.top = top + 'px';
+      card.style.left = left + 'px';
+    }, 260);
+  }
+
+  function render(){
+    var step = steps[idx];
+    kicker.textContent = 'STEP ' + (idx+1) + ' / ' + steps.length;
+    titleEl.textContent = step.title;
+    bodyEl.textContent = step.body;
+    btnBack.style.visibility = idx === 0 ? 'hidden' : 'visible';
+    btnNext.textContent = idx === steps.length - 1 ? 'Got it' : 'Next';
+    dotEls.forEach(function(d,i){ d.classList.toggle('on', i===idx); });
+    switchToView(step.view);
+    place();
+  }
+
+  function startTour(){ idx = 0; active = true; overlay.style.display = 'block'; render(); }
+  function endTour(){ active = false; overlay.style.display = 'none'; }
+  function next(){ if(idx < steps.length - 1){ idx++; render(); } else { endTour(); } }
+  function back(){ if(idx > 0){ idx--; render(); } }
+
+  btnNext.addEventListener('click', next);
+  btnBack.addEventListener('click', back);
+  btnSkip.addEventListener('click', endTour);
+  window.addEventListener('resize', function(){ if(active) place(); });
+  window.addEventListener('scroll', function(){ if(active) place(); }, true);
+  document.addEventListener('keydown', function(e){
+    if(!active) return;
+    if(e.key === 'Escape') endTour();
+    else if(e.key === 'ArrowRight' || e.key === 'Enter') next();
+    else if(e.key === 'ArrowLeft') back();
+  });
+  if(replayBtn) replayBtn.addEventListener('click', function(){ welcomeOverlay.style.display = 'none'; startTour(); });
+
+  /* ---------- welcome choice ---------- */
+  var welcomeOverlay = document.getElementById('welcomeOverlay');
+  document.getElementById('btnWelcomeTour').addEventListener('click', function(){
+    welcomeOverlay.style.display = 'none';
+    startTour();
+  });
+  document.getElementById('btnWelcomeSkip').addEventListener('click', function(){
+    welcomeOverlay.style.display = 'none';
+    toast('💡','Tip','Click through the four stages on the left whenever you\'re ready — I\'ll pop a quick note the first time you open each one.', 6500);
+  });
+
+  function maybeShowWelcome(){
+    var seen = false;
+    try{ seen = !!localStorage.getItem(WELCOME_KEY); }catch(e){}
+    try{ localStorage.setItem(WELCOME_KEY, '1'); }catch(e){}
+    if(!seen) welcomeOverlay.style.display = 'flex';
+  }
+
+  var splash = document.getElementById('bootSplash');
+  if(splash){
+    var checkGone = setInterval(function(){
+      if(!document.getElementById('bootSplash')){
+        clearInterval(checkGone);
+        setTimeout(maybeShowWelcome, 150);
+      }
+    }, 150);
+  } else {
+    setTimeout(maybeShowWelcome, 150);
+  }
+
+  /* ---------- just-in-time panel tips (only if welcome tour wasn't taken) ---------- */
+  var panelTips = {
+    inspect: { emoji:'🔍', title:'Step‑by‑Step', text:'Pick a sample, then click ①→④ in order to see forward pass, loss, backprop and the weight update happen one at a time.' },
+    train:   { emoji:'⚙️', title:'Train', text:'"Train" runs full epochs automatically. Prefer to go slow? Use "Step 1 Epoch" instead.' },
+    results: { emoji:'📊', title:'Results', text:'Weights, training history and the loss curve all live here once you\'ve run some training.' }
+  };
+  Array.from(document.querySelectorAll('.side-nav [data-view], .mobile-nav [data-view]')).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var view = btn.dataset.view;
+      var tip = panelTips[view];
+      if(!tip) return;
+      once(TIP_PREFIX + view, function(){
+        setTimeout(function(){ toast(tip.emoji, tip.title, tip.text); }, 350);
+      });
+    });
+  });
+
+  /* ---------- small celebration moments ---------- */
+  var buildBtn = document.getElementById('btnBuild');
+  if(buildBtn) buildBtn.addEventListener('click', function(){
+    once(CELEBRATE_PREFIX + 'build', function(){
+      setTimeout(function(){ toast('⚡','Network online', 'Weights and biases initialized. Head to Step‑by‑Step to see them in action.'); }, 200);
+    });
+  });
+
+  var applySampleBtn = document.getElementById('btnApplySample');
+  if(applySampleBtn) applySampleBtn.addEventListener('click', function(){
+    once(CELEBRATE_PREFIX + 'firstupdate', function(){
+      setTimeout(function(){ toast('🎉','Nice work', 'You just walked one sample through forward pass, loss, backprop and a weight update — by hand.'); }, 200);
+    });
+  });
+
+  var stopBtn = document.getElementById('btnStop');
+  if(stopBtn){
+    var wasDisabled = stopBtn.disabled;
+    new MutationObserver(function(){
+      var isDisabled = stopBtn.disabled;
+      if(wasDisabled === false && isDisabled === true){
+        once(CELEBRATE_PREFIX + 'trained', function(){
+          toast('📈','Training run complete', 'Check the loss curve in Results to see how it went.');
+        });
+      }
+      wasDisabled = isDisabled;
+    }).observe(stopBtn, { attributes:true, attributeFilter:['disabled'] });
+  }
 })();
 </script>
 </body>
